@@ -1,0 +1,175 @@
+1) The simple keywords are pretty much useless, it needs to be more sophisticated. For example, right now I get this crap
+
+>>> words=['blocked', 'censored', 'inaccessible']
+>>> with tweetstream.FilterStream("SSL_CU_test_t", "733Tspeak", track=words, follow=None, locations=None) as stream:
+...     for tweet in stream:
+...         print tweet["user"]["screen_name"] + " wrote: " + tweet["text"]
+... 
+lixutamajix wrote: dixie bought me CD T. Rex, I think it's blocked.
+mo61880 wrote: @sideline_lsa how do U know u were blocked
+Kennnny_ wrote: @SUPERbabyromo i never knew i blocked you im sorry !
+McCreadyAidan wrote: @RaiseY0urWeap0n blocked me for no reason!
+Ruth_Slobodin wrote: Sandra Rambo blocked me.. #ImSoOffended #Boohoo
+irene_vo wrote: Nose blocked!!
+RickA2Z wrote: RT @PeytonsHead: Haven't spoken to Tebow yet, but someone keeps texting "Judas" to my phone from a blocked number.
+
+2) We add a heuristic. Does the text contain a website?
+
+Problem. If we fetch data from twitter stream then all the links get shortened to a t.co
+This is built into twitter as it allows them to keep tweets within the word limit.
+
+For ex,
+
+>>> words = ['available', 'check it out']
+>>> with tweetstream.FilterStream("SSL_CU_test_t", "733Tspeak", track=words) as stream:
+...     for tweet in stream:
+...         urls = [x[1]+x[2] for x in [urlparse(tweet_part) for tweet_part in tweet["text"].split(' ')] if x[1] != '']
+...         if urls == []:
+...             continue
+...         print str(urls)
+... 
+[u't.co/b7BQuGD3']
+[u't.co/YR2kA6oS\nLove', u't.co/ZltSpV9E']
+[u't.co/XhM3JKk8']
+[u't.co/7ycPhrLZ']
+[u't.co/CHbbx9G6', u't.co/CHbbx9G6']
+[u't.co/t9BOdEkK']
+
+(No we cannot crawl twitter manually, a lot of parallel requests coming from a single server will alert twitter and our server will promptly get banned)
+
+3) >>> words = ["blocked", "censored", "unavailable", "can't get to"]
+>>> with tweetstream.FilterStream("SSL_CU_test_t", "733Tspeak", track=words) as stream:
+...     for tweet in stream:
+...         urls = [x[1]+x[2] for x in [urlparse(tweet_part) for tweet_part in tweet["text"].split(' ')] if x[1] != '']
+...         if urls == []:
+...             continue
+...         for url in urls:
+...             try:
+...                 urllib2.urlopen('http://' + url).url
+...             except:
+...                 print "Error"
+... 
+'http://secludedpornographer.tumblr.com/post/19600800436/if-this-picture-had-a-monocle-and-was-censored'
+'http://cl.ly/222d2H0E1S1n2L3I1U2D'
+Error
+"http://www.bing.com/news/search?q=obama's+daughter+in+mexico&qpvt=obama's+daughter+in+mexico&FORM=EWRE"
+'http://twitter.com/Rho_ChelleXD/status/181905089148096512/photo/1'
+'http://www.mystyle.com/mystyle/a/fergie-gets-st-pattys-day-chic-in-green/9084'
+'http://www.mystyle.com/mystyle/a/fergie-gets-st-pattys-day-chic-in-green/9084'
+'http://www.mystyle.com/mystyle/a/fergie-gets-st-pattys-day-chic-in-green/9084'
+'http://www.mystyle.com/mystyle/a/fergie-gets-st-pattys-day-chic-in-green/9084'
+'http://www.mystyle.com/mystyle/a/fergie-gets-st-pattys-day-chic-in-green/9084'
+'http://www.mystyle.com/mystyle/a/fergie-gets-st-pattys-day-chic-in-green/9084'
+'http://www.mystyle.com/mystyle/a/fergie-gets-st-pattys-day-chic-in-green/9084'
+'http://host.madison.com/ct/news/local/grassroots/grass-roots-censored-art-show-rises-in-protest-of-canceled/article_dbf131bc-6a47-11e1-af41-0019bb2963f4.html'
+Error
+'http://lifehacker.com/5894701/smartphone-screens-blocked-android-apps-and-headphone-isolation/gallery/1?utm_source=dlvr.it&utm_medium=twitter'
+'http://www.youtube.com/watch?v=YCW3uHNeQT4&feature=youtu.be'
+'http://romancingamerica.com/posts/meet-gina-welborn/'
+'http://www.youtube.com/watch?v=6X16bHXwJMU&feature=related'
+
+The resolving process might lead to errors which may be because those websites are blocked in whichever country the stream crawler resides in.
+
+One way of determining this is to try routing our requests through an external proxy and then verifying if the resolved URL is in the local herdict database.
+But we may also get multiple links to the same website. What do we do in this case? If the tweets originate from a different user, it seems that we should update the herdict unavailable count even if the fact
+that it is unavailable was not reported through the browser plugin.
+Apart from this, for performance benefits, we should keep a cache that will store the last 20-25 urls. If the incoming url resides in there, we don't bother going to the db. This will reduce the number of
+db calls in the presence of identical urls.
+
+4) Word selection needs to be more careful as we need to take care of context. Words that indicate
+some sort of outage or lack of service could mean something else entirely in a different context.
+
+>>> import microscour
+>>> microscour.tweet_test_2()
+smorgasbord wrote: An recent evening going through my twitter follows and unsubscribing from their retweets has really quietened things down. Try it!
+URL refs found: ['twitter']
+afisschools wrote: RT @wakeuptoislam: When Life pushes You down ... your in the Perfect position to Pray. http://t.co/KCF14Vow
+FacesOfSmoke wrote: @QuiteAmazing_ (NEW))) KAFANI FT RAYVEN JUSTICE- KNOCK EM DOWN- http://t.co/9IKon0Rq PLEASE COMMENT RT FOLLOW @2UCCI_BFA_
+tecdiverie wrote: Re: Wreck dives 31st March/1st April: Geoff, put me down for the U861 dive on the 1st...  http://t.co/OAdVF4zF
+HorseJunkiesUtd wrote: Productivity at work is going to go down this week... Tomorrow at 12:50 EST -&gt; HJU LIVE Chat as we watch the... http://t.co/i4H30a5U
+WorldDSDay wrote: Shall we dance? - Macedonia | World Down Syndrome Day http://t.co/lL6TZ5EB
+missbiancaBOOM wrote: Down Federal Hill http://t.co/CfyrG60B
+Lupev312 wrote: Go Hard! #Np #LUXURYvsLOVE - @SoSa937 "COUNT DOWN" chaos http://t.co/RpqeCBN2
+BroBuffet wrote: Hey Bros, can you please help my friend win a scholarship!! All you need to do is click the link scroll down and... http://t.co/YtmWZEqz
+TheIRealGhost wrote: Sit down and learn from the master http://t.co/srbWUwie
+
+
+This does not work. We can't just add words to a wordlist and hope that it will give us what we want.
+This raises the question of whether we need to do some NLP for some heavy lifting. I think this is a
+waste of time because tweets are only 140 characters in length. We can get by with some heuristics.
+
+
+5) One would be keyword pairs. That is, if a particular keyword is present in a tweet, we ascertain if a
+   given paired keyword is present as well. Is there a fine grained way of doing this?
+
+   Possibly. We keep a tiered keyword list. If a high tier keyword appears then we parse it and give the
+   output immediately. If a low tiered keyword appears, we will need to do some sort of analysis. What
+   this analysis will be, I am not sure. One way would be to have another associative keyword list (AKL)
+   for each of the keywords in the low tiered list. So an AKL for "down", a low tiered word, could be;
+   ["website", "url", "domain", "webpage"].
+
+   The lesson to take home is that the algorithm does NOT matter, since the input size is always
+   constant. All we need to do is to ensure that whatever analysis we do, will terminate in a bounded
+   time period.
+
+6) "Is Facebook down for you"
+   
+   To get stuff like this to work, what we need to do is use some sort of a noun identifier. Something
+   like opencalais will do perfectly.
+
+7) Why can't we use hash-tags. People aren't dumb. For example:
+
+ouisemperry wrote: "@TheSecretCircle: The New Secret Circle Book Is Out Today!!!! --&gt; http://t.co/BajNP8XY" ... Can't wait to get this!!!
+Error
+FacesOfSmoke wrote: @LustKillsLove (NEW))) KAFANI FT RAYVEN JUSTICE- KNOCK EM DOWN- http://t.co/9IKon0Rq PLEASE COMMENT RT FOLLOW @2UCCI_BFA_
+JeccaLt wrote: RT @Snotez: Still can't get my head around why people change their twitter name to some unfunny shit phrase with loads of symbols..? #ma ...
+URL refs found: ['twitter']
+kthoughtworker wrote: RT @shoobedoo: Yellow is a banned word: The Most Censored Words On The Chinese Internet. http://t.co/swnwGZap #China #censorship #web @m ...
+Ashika_MsCali wrote: Can't wait to get mine!!! RT @AFlyGuy: #CaramelSundae .. #flyguyflavors  http://t.co/hZmGmApB
+Neidapracticed wrote: Wingspan: Hits &amp; History: Japanese version includes one bonus track unavailable on  any other pressing, 'Eat At ... http://t.co/FhMfgPsH
+
+So, lets see what we get when we search using hash tags
+
+>>> import microscour
+>>> microscour.tweet_test_2()
+808armada wrote: CNN Opinions : #China's rise doesn't have to come at #America's expense http://t.co/poJ10uDZ
+MeetChina wrote: China's maritime expansion could go beyond Taiwan: experts - Global Security: China's maritime ... http://t.co/XeG7xsPJ #Military #China
+ProfessorsBlogg wrote: “Throw them all”. Swedish Sate Feminism in cultural-racist crusade http://t.co/SyC6aSQS #WikiLeaks #Assange @wikileaks @swedenvsassange
+erfarrell wrote: RT @m_cetera: Correcting lies &amp; smears about #Assange: Part 1) https://t.co/OV9GH45I Part 2) https://t.co/VYyqDzf2 #WikiLeaks #Assan ...
+
+
+:( Still a lot of irrelevant crap. Although it is interesting to note that this could be a fairly
+effective way of crowdsourcing relevant news stories related to specific topics.
+
+>>> import microscour
+>>> microscour.tweet_test_2()
+rblumel wrote: RT @KnowBe4: Major malware gang taken down today in Russia: http://t.co/Ba3eS0Lk
+BlqKhardasian wrote: Rebecca Holly Hood Scott - Tantilizing Tell All Tuesday! And it goes down tonight! …. Rebecca “Holly Hood”... http://t.co/k9ULIa5Y
+cPHerg wrote: RT @wideopenradio: It's going down this Friday night at El Chile Verde http://t.co/XL6Dcj4Y
+Timstinyworld wrote: New comic,"Website Down", is up at http://t.co/3nTgh5sr #webcomics #starsontheceiling #comic #journal
+
+#facepalm :|
+
+Looked up tagwalk. Interesting website but it doesn't really harvest any links. 
+
+We will need to use some combination of proper hashtags and keywords. This will require a lot of trial
+and error sort of work.
+
+8) Google charts demo
+
+Using pygoogle-charts is simple enough. I just got time to experiment with the pie chart. Later on, it
+would be fun to check out the other visualization tools.
+
+...
+URL refs found: ['twitter']
+word found: censorship
+WeLoveWikileaks wrote: RT @wikileaks: @unescoNOW Fancy you lot speaking about censorship, after censoring Wikileaks from your conferenc... http://t.co/6I0yyLxI
+word found: blocked
+YellowMami001 wrote: My mom sent a request I blocked her ass ASAP  RT @908865: When ya parents start making Facebook pages. ... (more)  http://t.co/dsd6mSRR
+word found: censorship
+Pryde609S wrote: RT @Doemela: Protecting Your Security Online. http://t.co/Pcwt3cvd
+ #activisme #Anonymous #censorship
+[4, 1, 1, 4, 0]
+http://chart.apis.google.com/chart?cht=p3&chs=150x100&chd=s:YGGYA&chl=blocked|censored|unavailable|censorship|website%20down|%23iranelections|goldenshield|firewall
+
+The png generated is in the repo as well.
